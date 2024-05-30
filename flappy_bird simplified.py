@@ -14,10 +14,12 @@ import pygame
 import random
 import os
 import time
+import numpy as np
+import controllers as ctrl
 pygame.font.init()  # init font
 
 WIN_WIDTH = 1000
-WIN_HEIGHT = 800
+WIN_HEIGHT = 700
 PIPE_VEL = 3
 FLOOR = 730
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
@@ -133,7 +135,6 @@ class Bird:
         """
         return pygame.mask.from_surface(self.img)
 
-
 class Pipe():
     """
     represents a pipe object
@@ -213,6 +214,9 @@ class Pipe():
             return True
 
         return False
+    
+    def get_gap_center(self):
+        return self.height + self.GAP/2
 
 class Base:
     """
@@ -315,6 +319,14 @@ def draw_window(win, bird, pipe, base, score):
 
     base.draw(win)
     bird.draw(win)
+    
+    # test figures
+    # center line of the game
+    pipe_gap_center = pipe.get_gap_center()
+    pygame.draw.line(win, (255,0,0), (0, pipe_gap_center), (WIN_WIDTH, pipe_gap_center), 1)
+    
+    # constraint boxes
+    # TODO pygame.draw.rect(win, (255,0,0), (0,0,WIN_WIDTH,FLOOR), 1)
 
     # score
     score_label = STAT_FONT.render("Score: " + str(score),1,(255,255,255))
@@ -329,7 +341,8 @@ def main(win):
     :param win: pygame window surface
     :return: None
     """
-    bird = Bird(230,350)
+    #bird = Bird(230,350)
+    bird = Bird(230, WIN_HEIGHT/2)
     base = Base(FLOOR)
     pipe = Pipe(WIN_WIDTH - 350)
     score = 0
@@ -337,11 +350,14 @@ def main(win):
     clock = pygame.time.Clock()
     start = False
     lost = False
+    
+    FRAMERATE = 30
+    Ts = 1/FRAMERATE
 
     run = True
     while run:
         pygame.time.delay(30)
-        clock.tick(60)
+        clock.tick(FRAMERATE)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -349,28 +365,49 @@ def main(win):
                 pygame.quit()
                 quit()
                 break
-
-        # new input method
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_SPACE]:
-            if not start:
-                        start = True
+        
+        # input from controller
+        if ctrl.pid(pipe.get_gap_center(), bird.y):
             bird.jump()
         else:
             bird.notjump()
+        
+
+        # new input method. Manual input
+        # keys = pygame.key.get_pressed()
+        # if keys[pygame.K_SPACE]:
+        #     if not start:
+        #                 start = True
+        #                 start_time = time.time()
+        #     bird.jump()
+        # else:
+        #     bird.notjump()
+        
+        # start game on input
+        keys = pygame.key.get_pressed()
+        if not start and keys[pygame.K_SPACE]:
+            start = True
+            start_time = time.time()
         
         # Move Bird
         if start:
             bird.move()
 
-        if bird.y + bird_images[0].get_height() - 10 >= FLOOR:
+        # collide with floor
+        #if bird.y + bird_images[0].get_height() - 10 >= FLOOR:
+        #    break
+        
+        # test
+        if bird.y == WIN_HEIGHT:
             break
         
         # check for collision
         if pipe.collide(bird, win):
             lost = True
             break
-            
+        
+        # if start:
+        #     print(f"Elapsed time: {time.time() - start_time}")
 
         draw_window(WIN, bird, pipe, base, score)
 
